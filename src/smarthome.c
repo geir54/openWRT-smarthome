@@ -2,17 +2,37 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
+#include <netdb.h>
 #include "GPIO.h"
 
-int main(void) {
-	printf("OpenWRT smart home v1.00a\n");
-	printf("http://russemotto.com/smarthome\n\n");
+int main(int argc, char *argv[]) {
 
-	pinMode(29, OUTPUT); // set pin 29 as output
-
+	char *ip;
+	char *host;
 	int sock;
 	struct sockaddr_in server;
 	char server_reply[2000];
+
+	printf("OpenWRT smart home v1.00a\n");
+	printf("http://smarthome.russemotto.com\n\n");
+
+	if(argc <2)
+	{
+		printf("\nI need a hostname\n");
+		return 0;
+	}
+
+	// host name to ip
+	host = argv[1];
+	struct hostent *h;
+	if ((h=gethostbyname(host)) == NULL) {  // get the host info
+		herror("gethostbyname");
+		return 0;
+	}
+	ip = inet_ntoa(*((struct in_addr *)h->h_addr));
+
+	pinMode(29, OUTPUT); // set pin 29 as output
 
 	// Does a long pull on a webserver to see if there are new commands
 	while(1) {
@@ -23,7 +43,7 @@ int main(void) {
 			printf("Could not create socket");
 		}		
 	
-		server.sin_addr.s_addr = inet_addr("/* put your ip here */");
+		server.sin_addr.s_addr = inet_addr(ip);
 		server.sin_family = AF_INET;
 		server.sin_port = htons(80);
 
@@ -36,7 +56,10 @@ int main(void) {
 		printf("Connected\n");
 	
 		// Send the GET message to server
-		char message[] = "GET /LP HTTP/1.0\r\nHost: /* put your host here */ \r\nUser-Agent: smarthome\r\n\r\n";
+		char *message = malloc(26+strlen(host)+28);   
+		strcpy(message, "GET /LP HTTP/1.0\r\nHost: ");
+		strcat(message, host);
+		strcat(message, "\r\nUser-Agent: smarthome\r\n\r\n");
 		if( send(sock , message , strlen(message) , 0) < 0)
 		{
 			printf("Error: Send failed");			
